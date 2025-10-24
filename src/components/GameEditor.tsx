@@ -27,6 +27,7 @@ const GameEditor = () => {
   const [selectedTrigger, setSelectedTrigger] = useState<Trigger | null>(null);
   const [showSpawnMenu, setShowSpawnMenu] = useState(false);
   const [spawnPosition, setSpawnPosition] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState<{ id: string; type: 'object' | 'trigger'; offsetX: number; offsetY: number } | null>(null);
 
   useEffect(() => {
     const initialSaws: GameObject[] = [
@@ -119,6 +120,64 @@ const GameEditor = () => {
     }
   };
 
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'object' | 'trigger', currentX: number, currentY: number) => {
+    e.stopPropagation();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    setDragging({
+      id,
+      type,
+      offsetX: clientX - currentX,
+      offsetY: clientY - currentY
+    });
+  };
+
+  const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!dragging) return;
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    const newX = clientX - dragging.offsetX;
+    const newY = clientY - dragging.offsetY;
+
+    if (dragging.type === 'object') {
+      setGameObjects(prev => prev.map(obj => 
+        obj.id === dragging.id ? { ...obj, x: newX, y: newY } : obj
+      ));
+    } else {
+      setTriggers(prev => prev.map(trigger => 
+        trigger.id === dragging.id ? { ...trigger, x: newX, y: newY } : trigger
+      ));
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragging(null);
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => handleDragMove(e as any);
+    const handleTouchMove = (e: TouchEvent) => handleDragMove(e as any);
+    const handleMouseUp = () => handleDragEnd();
+    const handleTouchEnd = () => handleDragEnd();
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [dragging]);
+
   return (
     <div className="relative w-full h-screen bg-gradient-to-br from-gray-800 via-gray-900 to-black">
       <div className="absolute top-4 left-4 z-50">
@@ -155,13 +214,17 @@ const GameEditor = () => {
         {gameObjects.map(obj => (
           <div
             key={obj.id}
-            className="absolute pointer-events-none"
+            className="absolute pointer-events-auto cursor-move"
             style={{
               left: obj.x - 40,
               top: obj.y - 40,
               transform: obj.type === 'saw' ? `rotate(${obj.rotation}deg)` : 'none',
-              transition: obj.type === 'saw' && animationsEnabled ? 'none' : 'transform 0.3s'
+              transition: obj.type === 'saw' && animationsEnabled ? 'none' : 'transform 0.3s',
+              touchAction: 'none'
             }}
+            onMouseDown={(e) => handleDragStart(e, obj.id, 'object', obj.x, obj.y)}
+            onTouchStart={(e) => handleDragStart(e, obj.id, 'object', obj.x, obj.y)}
+            onClick={(e) => e.stopPropagation()}
           >
             {obj.type === 'saw' && (
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center border-4 border-red-900 shadow-lg shadow-red-500/50">
@@ -188,11 +251,13 @@ const GameEditor = () => {
         {triggers.map(trigger => (
           <div
             key={trigger.id}
-            className="absolute cursor-pointer pointer-events-auto"
-            style={{ left: trigger.x - 30, top: trigger.y - 30 }}
+            className="absolute cursor-move pointer-events-auto"
+            style={{ left: trigger.x - 30, top: trigger.y - 30, touchAction: 'none' }}
+            onMouseDown={(e) => handleDragStart(e, trigger.id, 'trigger', trigger.x, trigger.y)}
+            onTouchStart={(e) => handleDragStart(e, trigger.id, 'trigger', trigger.x, trigger.y)}
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedTrigger(trigger);
+              if (!dragging) setSelectedTrigger(trigger);
             }}
           >
             <div className={`w-16 h-16 rounded-lg border-4 ${
