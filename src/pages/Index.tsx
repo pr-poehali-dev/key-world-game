@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { GameMenu } from '@/components/GameMenu';
 import { LevelSelector } from '@/components/LevelSelector';
 import GameCanvas from '@/components/GameCanvas';
+import GameEditor from '@/components/GameEditor';
+import { SkinsSelector } from '@/components/SkinsSelector';
+import { Leaderboard } from '@/components/Leaderboard';
 
 interface GameObject {
   x: number;
@@ -77,6 +80,7 @@ const Index = () => {
   const [currentSection, setCurrentSection] = useState<string>('menu');
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [selectedSkin, setSelectedSkin] = useState<string>('default');
 
   const handleNavigate = (section: string) => {
     setCurrentSection(section);
@@ -136,6 +140,24 @@ const Index = () => {
         title="Custom Levels"
       />
     );
+  }
+
+  if (currentSection === 'editor') {
+    return <GameEditor />;
+  }
+
+  if (currentSection === 'skins') {
+    return (
+      <SkinsSelector
+        onBack={handleBackToMenu}
+        selectedSkin={selectedSkin}
+        onSelectSkin={setSelectedSkin}
+      />
+    );
+  }
+
+  if (currentSection === 'leaderboard') {
+    return <Leaderboard onBack={handleBackToMenu} />;
   }
 
   return <GameMenu onNavigate={handleNavigate} username={username} />;
